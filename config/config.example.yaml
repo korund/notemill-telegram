@@ -23,7 +23,6 @@ webhook:
   url: CHANGE_ME
   listen_host: 0.0.0.0
   listen_port: 8080
-  path: /tg/webhook
   secret_file: /run/secrets/telegram_webhook_secret
   secret_env: TELEGRAM_WEBHOOK_SECRET
 

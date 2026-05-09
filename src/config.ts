@@ -75,7 +75,7 @@ export function loadConfig(yamlPath: string): Config {
       url: webhookUrl,
       listen_host: expectString(webhookRaw, 'webhook.listen_host', 'listen_host'),
       listen_port: expectNumber(webhookRaw, 'webhook.listen_port', 'listen_port'),
-      path: expectString(webhookRaw, 'webhook.path', 'path'),
+      path: new URL(webhookUrl).pathname,
       secret: webhookSecret,
     },
     queue,
