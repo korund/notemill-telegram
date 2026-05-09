@@ -14,8 +14,8 @@ import * as path from "node:path";
 import { parseArgs } from "node:util";
 import { ulid } from "ulid";
 
-import { bucketPut } from "../bucket.ts";
-import { QueueClient } from "../queue.ts";
+import { FsBucket } from "../bucket/fs.ts";
+import { SqliteQueue } from "../queue/sqlite.ts";
 import {
   WIRE_VERSION,
   buildAudioKey,
@@ -149,7 +149,8 @@ async function main(): Promise<void> {
   const audioKey = buildAudioKey(now, id, ext);
 
   // 1. Put bytes in bucket BEFORE enqueueing (contract section 5.4).
-  const putRes = await bucketPut(args.bucketRoot, audioKey, bytes);
+  const bucket = new FsBucket(args.bucketRoot);
+  const putRes = await bucket.put(audioKey, bytes);
 
   // 2. Build TranscribeJob.
   const dedupKey = tgDedupKey(args.chatId, args.messageId);
@@ -179,12 +180,12 @@ async function main(): Promise<void> {
   };
 
   // 3. INSERT JSON into queue_<name>.
-  const queue = QueueClient.open(args.dbPath);
-  let rowId: number;
+  const queue = SqliteQueue.open(args.dbPath);
+  let rowId: string;
   try {
-    rowId = queue.enqueue(args.queueName, JSON.stringify(job));
+    rowId = (await queue.enqueue(args.queueName, JSON.stringify(job))).id;
   } finally {
-    queue.close();
+    await queue.close();
   }
 
   // 4. Report.

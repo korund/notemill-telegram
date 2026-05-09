@@ -1,8 +1,8 @@
 {
-  "name": "notes-capture-bot",
+  "name": "notes-capture-producer-telegram",
   "version": "0.0.1",
   "private": true,
-  "description": "Telegram-side stub producer for the voice2text worker (Slice 1: no Telegram yet).",
+  "description": "Telegram producer for the voice2text worker (webhook-based, with optional message reactions).",
   "type": "module",
   "engines": {
     "node": ">=22.6"
@@ -10,10 +10,13 @@
   "scripts": {
     "typecheck": "tsc --noEmit",
     "produce": "node --experimental-sqlite --import tsx src/bin/produce.ts",
-    "poll": "node --experimental-sqlite --import tsx src/bin/poll.ts"
+    "poll": "node --experimental-sqlite --import tsx src/bin/poll.ts",
+    "server": "node --experimental-sqlite --import tsx src/bin/server.ts"
   },
   "dependencies": {
-    "ulid": "^2.3.0"
+    "grammy": "^1.42.0",
+    "ulid": "^2.3.0",
+    "yaml": "^2.8.4"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",

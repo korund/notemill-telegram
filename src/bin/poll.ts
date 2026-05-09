@@ -12,7 +12,7 @@
 
 import { parseArgs } from "node:util";
 
-import { QueueClient } from "../queue.ts";
+import { SqliteQueue } from "../queue/sqlite.ts";
 import { parseNotifyResult, type NotifyResult } from "../wire.ts";
 
 interface CliArgs {
@@ -96,7 +96,7 @@ async function sleep(ms: number, signal: AbortSignal): Promise<void> {
 
 async function main(): Promise<void> {
   const args = parseCli(process.argv.slice(2));
-  const queue = QueueClient.open(args.dbPath);
+  const queue = SqliteQueue.open(args.dbPath);
 
   const ac = new AbortController();
   const onSig = (sig: NodeJS.Signals): void => {
@@ -115,8 +115,8 @@ async function main(): Promise<void> {
   try {
     let processedAny = false;
     while (!ac.signal.aborted) {
-      const row = queue.peekVisible(args.queueName);
-      if (row === undefined) {
+      const row = await queue.receive(args.queueName);
+      if (row === null) {
         if (args.once && processedAny) break;
         await sleep(args.intervalMs, ac.signal);
         continue;
@@ -131,7 +131,7 @@ async function main(): Promise<void> {
           `poll: row id=${row.id} unparseable, deleting. reason=${msg}\n` +
             `poll: raw payload: ${row.payload}\n`,
         );
-        queue.deleteById(args.queueName, row.id);
+        await queue.delete(args.queueName, row.id);
         continue;
       }
 
@@ -147,13 +147,13 @@ async function main(): Promise<void> {
       process.stdout.write(JSON.stringify(line) + "\n");
       process.stderr.write(`poll: ${summarize(parsed)}\n`);
 
-      queue.deleteById(args.queueName, row.id);
+      await queue.delete(args.queueName, row.id);
       processedAny = true;
 
       if (args.once) break;
     }
   } finally {
-    queue.close();
+    await queue.close();
     process.off("SIGINT", onSig);
     process.off("SIGTERM", onSig);
   }

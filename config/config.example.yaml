@@ -1,0 +1,115 @@
+# notes-capture-bot configuration
+#
+# Fields with value CHANGE_ME must be filled in by the operator.
+# Fields with value null are optional; leave as-is to use the default.
+#
+# Secrets (bot token, webhook secret) live OUTSIDE this file.
+# Two sources are supported, in priority order (file > env, first non-empty wins):
+#   1. File at path given by `*_file` (recommended for docker secrets)
+#   2. Environment variable named by `*_env`  (recommended for compose with .env)
+# Both keys may be set; the file takes precedence.
+
+# --- Telegram client -----------------------------------------------------
+telegram:
+  bot_token_file: /run/secrets/telegram_bot_token
+  bot_token_env: TELEGRAM_BOT_TOKEN
+
+# --- Webhook ingress -----------------------------------------------------
+#
+# Public URL Telegram will POST updates to. Must be HTTPS in production.
+# `secret` is sent by Telegram in the X-Telegram-Bot-Api-Secret-Token header
+# and verified on every request; mismatch returns 401 without parsing.
+webhook:
+  url: CHANGE_ME
+  listen_host: 0.0.0.0
+  listen_port: 8080
+  path: /tg/webhook
+  secret_file: /run/secrets/telegram_webhook_secret
+  secret_env: TELEGRAM_WEBHOOK_SECRET
+
+# --- Queue ---------------------------------------------------------------
+#
+# Backend selects which per-backend block below is used.
+# Today only "sqlite" ships; "sqs" and others may be added without changing
+# this shape.
+queue:
+  backend: sqlite
+  # Idle poll interval for consumers reading from this queue.
+  # SQLite-specific (SQS would use long-poll WaitTimeSeconds instead).
+  poll_interval_ms: 1000
+  sqlite:
+    path: /data/queue.db
+  # sqs:
+  #   region: us-east-1
+  #   queue_url_transcribe: https://sqs.us-east-1.amazonaws.com/.../transcribe
+  #   queue_url_notifications: https://sqs.us-east-1.amazonaws.com/.../notifications
+
+# --- Bucket --------------------------------------------------------------
+#
+# Where audio bytes live. Same shape as queue: backend selects per-backend
+# block.
+bucket:
+  backend: fs
+  fs:
+    # Directory shared with the worker container via a docker volume.
+    root: /data/buckets
+  # s3:
+  #   region: us-east-1
+  #   bucket: notes-capture-audio
+
+# --- Access control ------------------------------------------------------
+#
+# Deny-by-default. Empty list means NO ONE is allowed to use the bot.
+# Add Telegram numeric user ids to allow them. Unauthorized updates are
+# silently dropped (no reply, no reaction, no log beyond a single WARN).
+access:
+  allowed_user_ids: []
+
+# --- Reactions -----------------------------------------------------------
+#
+# When enabled, the bot reacts on each authorized voice/audio message:
+#   `queued` reaction is set on enqueue,
+#   `done`   replaces it on successful transcription,
+#   `error`  replaces it on failed transcription (the bot also replies with
+#            a short text containing error_code and a truncated error_msg).
+# Set any of these to null to use the built-in default.
+#
+# Telegram only accepts reactions from a fixed set of emoji. Each value can
+# be written either as the literal emoji character or as one or more
+# space-separated `U+XXXX` codepoints (e.g. "U+1F440" for the eyes emoji,
+# "U+2764 U+200D U+1F525" for heart-on-fire). The U+ form keeps this file
+# ASCII-only.
+#
+# Allowed reactions (codepoint -> short name):
+#   U+1F44D thumbs_up        U+1F44E thumbs_down       U+2764  heart
+#   U+1F525 fire             U+1F970 smiling_hearts    U+1F44F clapping
+#   U+1F601 grinning         U+1F914 thinking          U+1F92F mind_blown
+#   U+1F631 screaming        U+1F92C cursing           U+1F622 crying
+#   U+1F389 party            U+1F929 starstruck        U+1F92E vomiting
+#   U+1F4A9 poo              U+1F64F praying           U+1F44C ok_hand
+#   U+1F54A dove             U+1F921 clown             U+1F971 yawning
+#   U+1F974 woozy            U+1F60D heart_eyes        U+1F433 whale
+#   U+1F31A new_moon_face    U+1F32D hot_dog           U+1F4AF hundred
+#   U+1F923 rolling_laugh    U+26A1  lightning         U+1F34C banana
+#   U+1F3C6 trophy           U+1F494 broken_heart      U+1F928 raised_brow
+#   U+1F610 neutral_face     U+1F353 strawberry        U+1F37E champagne
+#   U+1F48B kiss             U+1F595 middle_finger     U+1F608 smiling_devil
+#   U+1F634 sleeping         U+1F62D loud_crying       U+1F913 nerd
+#   U+1F440 eyes             U+1F383 jack_o_lantern    U+1F648 see_no_evil
+#   U+1F607 angel            U+1F628 fearful           U+1F91D handshake
+#   U+270D  writing_hand     U+1F917 hugging           U+1FAE1 saluting
+#   U+1F385 santa            U+1F384 christmas_tree    U+2603  snowman
+#   U+1F485 nail_polish      U+1F92A zany              U+1F5FF moai
+#   U+1F192 cool             U+1F498 cupid             U+1F649 hear_no_evil
+#   U+1F984 unicorn          U+1F618 kiss_face         U+1F48A pill
+#   U+1F64A speak_no_evil    U+1F60E sunglasses        U+1F47E alien_monster
+#   U+1F937 shrugging        U+1F621 enraged           U+1F47B ghost
+#   U+1F937 U+200D U+2642 man_shrugging
+#   U+1F937 U+200D U+2640 woman_shrugging
+#   U+1F468 U+200D U+1F4BB technologist
+#   U+2764 U+200D U+1F525 heart_on_fire
+reactions:
+  enabled: true
+  queued: null
+  done: null
+  error: null
