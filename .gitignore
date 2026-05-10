@@ -7,3 +7,4 @@ config/config.yaml
 
 # IDE
 *.iml
+dist/
