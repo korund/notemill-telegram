@@ -1,8 +1,8 @@
 {
-  "name": "notes-capture-producer-telegram",
+  "name": "notemill-telegram",
   "version": "0.0.1",
   "private": true,
-  "description": "Telegram producer for the voice2text worker (webhook-based, with optional message reactions).",
+  "description": "Telegram producer for the Notemill worker (webhook-based, with optional message reactions).",
   "type": "module",
   "engines": {
     "node": ">=22.6"

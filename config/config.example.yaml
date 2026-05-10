@@ -1,4 +1,4 @@
-# notes-capture-bot configuration
+# Notemill: Telegram producer configuration
 #
 # Fields with value CHANGE_ME must be filled in by the operator.
 # Fields with value null are optional; leave as-is to use the default.
@@ -54,7 +54,7 @@ bucket:
     root: /data/buckets
   # s3:
   #   region: us-east-1
-  #   bucket: notes-capture-audio
+  #   bucket: notemill-audio
 
 # --- Access control ------------------------------------------------------
 #

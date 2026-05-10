@@ -42,7 +42,7 @@ export class SqliteQueue implements Queue {
     if (!existsSync(dbPath)) {
       throw new Error(
         `queue: database file not found at '${dbPath}'. ` +
-          'Start the worker first (`voice2text run queue`) so it creates the schema.',
+          'Start the worker first (`notemill-worker run queue`) so it creates the schema.',
       );
     }
     const db = new DatabaseSync(dbPath);

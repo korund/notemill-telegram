@@ -2,7 +2,7 @@
 //
 // Reads an audio file from disk, mints a ULID + audio_key, drops the bytes
 // into the FS bucket, and INSERTs a TranscribeJob into queue_transcribe so
-// the worker (`voice2text run queue`) can pick it up.
+// the worker (`notemill-worker run queue`) can pick it up.
 //
 // Usage (see README for full recipe):
 //   npm run produce -- <audio-file> [--db PATH] [--bucket-root PATH] \
@@ -120,7 +120,7 @@ function printHelp(): void {
 }
 
 // NOTE: we deliberately do NOT auto-infer hints.mime from the file extension.
-// The current worker (voice2text/src/decode/ffmpeg.rs) treats hints.mime as a
+// The current worker (notemill-worker/src/decode/ffmpeg.rs) treats hints.mime as a
 // filename extension and joins it onto a temp-file path. A real MIME like
 // "audio/ogg" then becomes a slash-bearing path component and write() fails
 // with ENOENT. Until the worker is fixed, mime is sent only when the operator
