@@ -3,7 +3,8 @@ node_modules/
 .DS_Store
 .env
 .env.local
-config/config.yaml
+config/*
+!config/config.example.yaml
 
 # IDE
 *.iml

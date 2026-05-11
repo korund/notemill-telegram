@@ -7,6 +7,5 @@ dist/
 .git/
 .idea/
 *.iml
-config/config.yaml
-config/telegram_bot_token
-config/telegram_webhook_secret
+config/*
+!config/config.example.yaml
