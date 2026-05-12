@@ -34,12 +34,15 @@ export interface Config {
   reactions: ReactionsConfig;
 }
 
-const DEFAULT_REACTION_QUEUED = 'U+1F914';
+const DEFAULT_REACTION_QUEUED = 'U+270D';
 const DEFAULT_REACTION_DONE = 'U+1F44D';
 const DEFAULT_REACTION_ERROR = 'U+1F44E';
 
-export function loadConfig(yamlPath: string): Config {
-  const raw = parseYaml(readFileSync(yamlPath, 'utf8')) as Record<string, unknown>;
+export function loadConfig(yamlPath: string, overrides: string[] = []): Config {
+  let raw = parseYaml(readFileSync(yamlPath, 'utf8')) as Record<string, unknown>;
+  if (overrides.length > 0) {
+    raw = applyOverrides(raw, overrides);
+  }
   if (!raw || typeof raw !== 'object') {
     throw new ConfigError(`config: ${yamlPath} is empty or not a mapping`);
   }
@@ -198,6 +201,43 @@ function optString(parent: Record<string, unknown>, key: string): string | undef
 
 function isErrnoCode(err: unknown, code: string): boolean {
   return typeof err === 'object' && err !== null && (err as { code?: string }).code === code;
+}
+
+function applyOverrides(
+  raw: Record<string, unknown>,
+  overrides: string[],
+): Record<string, unknown> {
+  const root: Record<string, unknown> = structuredClone(raw);
+  for (const entry of overrides) {
+    const eq = entry.indexOf('=');
+    if (eq < 1) {
+      throw new ConfigError(`--set: expected key=value, got '${entry}'`);
+    }
+    const key = entry.slice(0, eq);
+    const valStr = entry.slice(eq + 1);
+    let parsed: unknown;
+    try {
+      parsed = parseYaml(valStr);
+    } catch {
+      throw new ConfigError(`--set ${key}: invalid YAML value '${valStr}'`);
+    }
+    setDottedKey(root, key, parsed);
+  }
+  return root;
+}
+
+function setDottedKey(root: Record<string, unknown>, key: string, value: unknown): void {
+  const parts = key.split('.');
+  const last = parts.at(-1);
+  if (!last) return;
+  let cur: Record<string, unknown> = root;
+  for (const part of parts.slice(0, -1)) {
+    if (cur[part] === null || cur[part] === undefined || typeof cur[part] !== 'object') {
+      cur[part] = {};
+    }
+    cur = cur[part] as Record<string, unknown>;
+  }
+  cur[last] = value;
 }
 
 // Reaction strings may be written either as a literal emoji

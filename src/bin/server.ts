@@ -20,6 +20,7 @@ import { runNotifier } from '../notifier.ts';
 
 interface CliArgs {
   configPath: string;
+  set: string[];
 }
 
 function parseCli(argv: string[]): CliArgs {
@@ -28,6 +29,7 @@ function parseCli(argv: string[]): CliArgs {
     allowPositionals: false,
     options: {
       config: { type: 'string', default: 'config/config.example.yaml' },
+      set: { type: 'string', multiple: true, default: [] },
       help: { type: 'boolean', short: 'h', default: false },
     },
   });
@@ -35,7 +37,7 @@ function parseCli(argv: string[]): CliArgs {
     printHelp();
     process.exit(0);
   }
-  return { configPath: values.config as string };
+  return { configPath: values.config as string, set: values.set as string[] };
 }
 
 function printHelp(): void {
@@ -46,8 +48,9 @@ function printHelp(): void {
       'Runs the Telegram webhook ingress and notifications poller.',
       '',
       'Options:',
-      '  --config PATH   YAML config (default config/config.example.yaml)',
-      '  -h, --help      show this help',
+      '  --config PATH        YAML config (default config/config.example.yaml)',
+      '  --set key=value      override a config value (dotted path, YAML scalar; repeatable)',
+      '  -h, --help           show this help',
       '',
     ].join('\n'),
   );
@@ -55,7 +58,7 @@ function printHelp(): void {
 
 async function main(): Promise<void> {
   const args = parseCli(process.argv.slice(2));
-  const cfg = loadConfig(args.configPath);
+  const cfg = loadConfig(args.configPath, args.set);
 
   const queue = createQueue(cfg.queue);
   const bucket = createBucket(cfg.bucket);
