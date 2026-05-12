@@ -5,13 +5,13 @@
   "description": "Telegram producer for the Notemill worker (webhook-based, with optional message reactions).",
   "type": "module",
   "engines": {
-    "node": ">=22.6"
+    "node": ">=22.15"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "produce": "node --experimental-sqlite --import tsx src/bin/produce.ts",
-    "poll": "node --experimental-sqlite --import tsx src/bin/poll.ts",
-    "server": "node --experimental-sqlite --import tsx src/bin/server.ts"
+    "produce": "node --import tsx src/bin/produce.ts",
+    "poll": "node --import tsx src/bin/poll.ts",
+    "server": "node --import tsx src/bin/server.ts"
   },
   "dependencies": {
     "grammy": "^1.42.0",

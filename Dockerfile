@@ -15,4 +15,4 @@ RUN npm ci --omit=dev && npm cache clean --force
 COPY --from=build /app/dist/ dist/
 
 EXPOSE 8080
-CMD ["node", "--experimental-sqlite", "dist/bin/server.js"]
+CMD ["node", "dist/bin/server.js"]

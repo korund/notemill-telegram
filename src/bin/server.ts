@@ -6,7 +6,7 @@
 // here; ingress and notifier never look at the config backend keys.
 //
 // Run:
-//   node --experimental-sqlite --import tsx src/bin/server.ts \
+//   node --import tsx src/bin/server.ts \
 //     --config config/config.example.yaml
 
 import { parseArgs } from 'node:util';
