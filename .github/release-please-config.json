@@ -1,0 +1,12 @@
+{
+  "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
+  "release-type": "node",
+  "packages": {
+    ".": {
+      "package-name": "notemill-telegram",
+      "changelog-path": "CHANGELOG.md",
+      "include-v-in-tag": true,
+      "bootstrap-sha": "de68b1298d7f3a2be70d83ba2f01708a6cabccb5"
+    }
+  }
+}
