@@ -18,7 +18,12 @@ import { Api } from 'grammy';
 
 import type { Config } from './config.ts';
 import type { Queue, QueueMessage } from './queue/types.ts';
-import { parseNotifyResult, type NotifyResult } from './wire.ts';
+import {
+  parseNotifyResult,
+  type NotifyResult,
+  type NotifySource,
+  type ParseNotifyResult,
+} from './wire.ts';
 
 const NOTIFICATIONS_QUEUE = 'notifications';
 const ERROR_MSG_MAX = 200;
@@ -48,7 +53,7 @@ export async function runNotifier(
       continue;
     }
 
-    let parsed: NotifyResult;
+    let parsed: ParseNotifyResult;
     try {
       parsed = parseNotifyResult(msg.payload);
     } catch (err) {
@@ -60,7 +65,11 @@ export async function runNotifier(
       continue;
     }
 
-    await handleResult(cfg, api, parsed);
+    if (parsed.kind === 'unknown_variant') {
+      await handleUnknownVariant(cfg, api, parsed);
+    } else {
+      await handleResult(cfg, api, parsed.value);
+    }
     await deleteSafe(queue, msg.id);
   }
   process.stderr.write('notifier: stopped\n');
@@ -105,6 +114,31 @@ export async function handleResult(cfg: Config, api: Api, n: NotifyResult): Prom
   } catch (err) {
     const m = err instanceof Error ? err.message : String(err);
     process.stderr.write(`notifier: error reply failed for chat=${chat_id}: ${m}\n`);
+  }
+}
+
+export async function handleUnknownVariant(
+  cfg: Config,
+  api: Api,
+  u: Extract<ParseNotifyResult, { kind: 'unknown_variant' }>,
+): Promise<void> {
+  const { chat_id, message_id } = u.source;
+  process.stderr.write(
+    `notifier: unknown variant for chat=${chat_id} msg=${message_id} ` +
+      `dedup=${u.dedup_key} v=${String(u.v)} status=${String(u.status)} -- dropping; ` +
+      `update bot to handle this variant\n`,
+  );
+  if (!cfg.reactions.enabled) return;
+
+  await setReactionSafe(api, chat_id, message_id, cfg.reactions.error);
+  const text = `internal: unknown result variant (v=${String(u.v)} status=${String(u.status)}). Update the bot.`;
+  try {
+    await api.sendMessage(chat_id, text, { reply_parameters: { message_id } });
+  } catch (err) {
+    const m = err instanceof Error ? err.message : String(err);
+    process.stderr.write(
+      `notifier: unknown-variant reply failed for chat=${chat_id}: ${m}\n`,
+    );
   }
 }
 

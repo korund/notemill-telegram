@@ -125,9 +125,9 @@ async function main(): Promise<void> {
         continue;
       }
 
-      let parsed: NotifyResult;
+      let parsedRaw;
       try {
-        parsed = parseNotifyResult(row.payload);
+        parsedRaw = parseNotifyResult(row.payload);
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         process.stderr.write(
@@ -138,6 +138,18 @@ async function main(): Promise<void> {
         continue;
       }
 
+      if (parsedRaw.kind === "unknown_variant") {
+        process.stderr.write(
+          `poll: row id=${row.id} unknown variant v=${String(parsedRaw.v)} ` +
+            `status=${String(parsedRaw.status)} dedup=${parsedRaw.dedup_key} -- dropping\n`,
+        );
+        await queue.delete(args.queueName, row.id);
+        processedAny = true;
+        if (args.once) break;
+        continue;
+      }
+
+      const parsed: NotifyResult = parsedRaw.value;
       const line = {
         ts: new Date().toISOString(),
         row_id: row.id,

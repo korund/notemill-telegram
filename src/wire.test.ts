@@ -23,10 +23,12 @@ describe('parseNotifyResult: no_speech', () => {
     const parsed = parseNotifyResult(
       notify({ status: 'no_speech', reason: 'silent', duration_ms: 42 }),
     );
-    assert.equal(parsed.result.status, 'no_speech');
-    if (parsed.result.status !== 'no_speech') return; // type-guard
-    assert.equal(parsed.result.reason, 'silent');
-    assert.equal(parsed.result.duration_ms, 42);
+    assert.equal(parsed.kind, 'ok');
+    if (parsed.kind !== 'ok') return;
+    assert.equal(parsed.value.result.status, 'no_speech');
+    if (parsed.value.result.status !== 'no_speech') return;
+    assert.equal(parsed.value.result.reason, 'silent');
+    assert.equal(parsed.value.result.duration_ms, 42);
   });
 
   test('throws when reason is missing', () => {
@@ -51,5 +53,47 @@ describe('parseNotifyResult: no_speech', () => {
       () => parseNotifyResult(notify({ status: 'no_speech', reason: 'silent' })),
       /duration_ms missing/,
     );
+  });
+});
+
+describe('parseNotifyResult: tolerance', () => {
+  test('returns unknown_variant for an unknown status', () => {
+    const parsed = parseNotifyResult(
+      notify({ status: 'too_noisy', duration_ms: 99 }),
+    );
+    assert.equal(parsed.kind, 'unknown_variant');
+    if (parsed.kind !== 'unknown_variant') return;
+    assert.equal(parsed.status, 'too_noisy');
+    assert.equal(parsed.v, 1);
+    assert.equal(parsed.source.chat_id, 1);
+    assert.equal(parsed.source.message_id, 2);
+  });
+
+  test('returns unknown_variant for an unknown wire version', () => {
+    const raw = JSON.stringify({
+      v: 2,
+      type: 'notify_result',
+      dedup_key: 'tg:1:2',
+      source: { kind: 'telegram', chat_id: 1, message_id: 2, update_id: 3 },
+      result: { status: 'ok', output_ref: 'x', duration_ms: 1 },
+    });
+    const parsed = parseNotifyResult(raw);
+    assert.equal(parsed.kind, 'unknown_variant');
+    if (parsed.kind !== 'unknown_variant') return;
+    assert.equal(parsed.v, 2);
+  });
+
+  test('still throws on structurally broken envelope (no source)', () => {
+    const raw = JSON.stringify({
+      v: 1,
+      type: 'notify_result',
+      dedup_key: 'tg:1:2',
+      result: { status: 'ok', output_ref: 'x', duration_ms: 1 },
+    });
+    assert.throws(() => parseNotifyResult(raw), /source missing/);
+  });
+
+  test('still throws on non-object payload', () => {
+    assert.throws(() => parseNotifyResult('null'), /not an object/);
   });
 });

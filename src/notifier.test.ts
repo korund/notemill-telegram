@@ -4,8 +4,8 @@ import { strict as assert } from 'node:assert';
 import type { Api } from 'grammy';
 
 import type { Config } from './config.ts';
-import { handleResult } from './notifier.ts';
-import type { NotifyResult } from './wire.ts';
+import { handleResult, handleUnknownVariant } from './notifier.ts';
+import type { NotifyResult, ParseNotifyResult } from './wire.ts';
 
 function makeConfig(): Config {
   return {
@@ -80,6 +80,46 @@ describe('handleResult: no_speech', () => {
     cfg.reactions.enabled = false;
     const { api, setReaction, sendMessage } = makeApi();
     await handleResult(cfg, api, noSpeechNotify());
+
+    assert.equal(setReaction.mock.callCount(), 0);
+    assert.equal(sendMessage.mock.callCount(), 0);
+  });
+});
+
+function unknownVariant(): Extract<ParseNotifyResult, { kind: 'unknown_variant' }> {
+  return {
+    kind: 'unknown_variant',
+    v: 2,
+    status: 'too_noisy',
+    dedup_key: 'tg:1:2',
+    source: { kind: 'telegram', chat_id: 100, message_id: 200, update_id: 300 },
+  };
+}
+
+describe('handleUnknownVariant', () => {
+  test('sets the error reaction and sends a diagnostic reply', async () => {
+    const cfg = makeConfig();
+    const { api, setReaction, sendMessage } = makeApi();
+    await handleUnknownVariant(cfg, api, unknownVariant());
+
+    assert.equal(setReaction.mock.callCount(), 1);
+    const reactArgs = setReaction.mock.calls[0]?.arguments;
+    assert.deepEqual(reactArgs?.[2], [{ type: 'emoji', emoji: 'error-emoji' }]);
+
+    assert.equal(sendMessage.mock.callCount(), 1);
+    const sendArgs = sendMessage.mock.calls[0]?.arguments;
+    assert.equal(sendArgs?.[0], 100);
+    const text = String(sendArgs?.[1]);
+    assert.match(text, /unknown result variant/);
+    assert.match(text, /v=2/);
+    assert.match(text, /status=too_noisy/);
+  });
+
+  test('skips reaction and reply when reactions are disabled', async () => {
+    const cfg = makeConfig();
+    cfg.reactions.enabled = false;
+    const { api, setReaction, sendMessage } = makeApi();
+    await handleUnknownVariant(cfg, api, unknownVariant());
 
     assert.equal(setReaction.mock.callCount(), 0);
     assert.equal(sendMessage.mock.callCount(), 0);
