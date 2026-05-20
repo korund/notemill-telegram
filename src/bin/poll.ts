@@ -76,6 +76,9 @@ function summarize(result: NotifyResult): string {
   if (r.status === "ok") {
     return `ok  output_ref=${r.output_ref} duration_ms=${r.duration_ms}`;
   }
+  if (r.status === "no_speech") {
+    return `no_speech reason=${r.reason} duration_ms=${r.duration_ms}`;
+  }
   return `err code=${r.error_code} duration_ms=${r.duration_ms} msg=${r.error_msg}`;
 }
 

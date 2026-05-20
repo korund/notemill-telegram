@@ -1,9 +1,13 @@
 // Notifier loop: drains queue_notifications and updates Telegram reactions.
 //
 // For each NotifyResult:
-//   - status=ok    -> set the `done` reaction on the original message.
-//   - status=error -> set the `error` reaction and reply with a short text
-//                     containing the error_code and a truncated error_msg.
+//   - status=ok        -> set the `done` reaction on the original message.
+//   - status=error     -> set the `error` reaction and reply with a short
+//                         text containing the error_code and a truncated
+//                         error_msg.
+//   - status=no_speech -> set the `no_speech` reaction and reply with a
+//                         short Russian message explaining nothing was
+//                         heard. Not a failure: do not retry.
 //
 // Unparseable rows are logged and dropped. Successfully handled rows are
 // always deleted. If a TG API call fails (rate limit, message gone, etc.)
@@ -62,7 +66,7 @@ export async function runNotifier(
   process.stderr.write('notifier: stopped\n');
 }
 
-async function handleResult(cfg: Config, api: Api, n: NotifyResult): Promise<void> {
+export async function handleResult(cfg: Config, api: Api, n: NotifyResult): Promise<void> {
   const { chat_id, message_id } = n.source;
   const r = n.result;
 
@@ -78,6 +82,20 @@ async function handleResult(cfg: Config, api: Api, n: NotifyResult): Promise<voi
     return;
   }
 
+  if (r.status === 'no_speech') {
+    await setReactionSafe(api, chat_id, message_id, cfg.reactions.no_speech);
+    const text = formatNoSpeechReply(r.reason);
+    try {
+      await api.sendMessage(chat_id, text, { reply_parameters: { message_id } });
+    } catch (err) {
+      const m = err instanceof Error ? err.message : String(err);
+      process.stderr.write(
+        `notifier: no_speech reply failed for chat=${chat_id}: ${m}\n`,
+      );
+    }
+    return;
+  }
+
   // status === 'error'
   logError(n);
   await setReactionSafe(api, chat_id, message_id, cfg.reactions.error);
@@ -87,6 +105,13 @@ async function handleResult(cfg: Config, api: Api, n: NotifyResult): Promise<voi
   } catch (err) {
     const m = err instanceof Error ? err.message : String(err);
     process.stderr.write(`notifier: error reply failed for chat=${chat_id}: ${m}\n`);
+  }
+}
+
+function formatNoSpeechReply(reason: 'silent'): string {
+  switch (reason) {
+    case 'silent':
+      return 'Не услышал речи в записи.';
   }
 }
 

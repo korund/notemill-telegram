@@ -58,7 +58,18 @@ export interface NotifyResultError {
   duration_ms: number;
 }
 
-export type NotifyResultBody = NotifyResultOk | NotifyResultError;
+export type NoSpeechReason = "silent";
+
+export interface NotifyResultNoSpeech {
+  status: "no_speech";
+  reason: NoSpeechReason;
+  duration_ms: number;
+}
+
+export type NotifyResultBody =
+  | NotifyResultOk
+  | NotifyResultError
+  | NotifyResultNoSpeech;
 
 export interface NotifyResult {
   v: 1;
@@ -107,10 +118,17 @@ export function parseNotifyResult(raw: string): NotifyResult {
   if (typeof res !== "object" || res === null) throw new Error("NotifyResult: result missing");
   const r = res as Record<string, unknown>;
   const status = r["status"];
-  if (status !== "ok" && status !== "error") {
+  if (status !== "ok" && status !== "error" && status !== "no_speech") {
     throw new Error(`NotifyResult: bad result.status=${String(status)}`);
   }
   if (typeof r["duration_ms"] !== "number") throw new Error("NotifyResult: result.duration_ms missing");
+
+  if (status === "no_speech") {
+    const reason = r["reason"];
+    if (reason !== "silent") {
+      throw new Error(`NotifyResult: bad result.reason=${String(reason)}`);
+    }
+  }
 
   // Cast is safe after the checks above; we trust the worker for the rest.
   return obj as NotifyResult;

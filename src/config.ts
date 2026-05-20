@@ -17,6 +17,7 @@ export interface ReactionsConfig {
   queued: string;
   done: string;
   error: string;
+  no_speech: string;
 }
 
 export interface Config {
@@ -37,6 +38,7 @@ export interface Config {
 const DEFAULT_REACTION_QUEUED = 'U+270D';
 const DEFAULT_REACTION_DONE = 'U+1F44D';
 const DEFAULT_REACTION_ERROR = 'U+1F44E';
+const DEFAULT_REACTION_NO_SPEECH = 'U+1F442';
 
 export function loadConfig(yamlPath: string, overrides: string[] = []): Config {
   let raw = parseYaml(readFileSync(yamlPath, 'utf8')) as Record<string, unknown>;
@@ -70,6 +72,10 @@ export function loadConfig(yamlPath: string, overrides: string[] = []): Config {
     queued: decodeReaction(optString(reactionsRaw, 'queued'), DEFAULT_REACTION_QUEUED),
     done: decodeReaction(optString(reactionsRaw, 'done'), DEFAULT_REACTION_DONE),
     error: decodeReaction(optString(reactionsRaw, 'error'), DEFAULT_REACTION_ERROR),
+    no_speech: decodeReaction(
+      optString(reactionsRaw, 'no_speech'),
+      DEFAULT_REACTION_NO_SPEECH,
+    ),
   };
 
   return {
