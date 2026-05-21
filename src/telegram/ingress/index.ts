@@ -17,6 +17,7 @@ import type { Bucket } from '../../bucket/types.ts';
 
 import { handleAudio } from './handler.ts';
 import { mkLog } from '../../log.ts';
+import type { LanguageStore } from '../language_store.ts';
 
 const log = mkLog('ingress');
 
@@ -26,6 +27,7 @@ export async function runIngress(
   bucket: Bucket,
   bot: Bot,
   signal: AbortSignal,
+  store: LanguageStore,
 ): Promise<void> {
   const allowed = new Set(cfg.access.allowed_user_ids);
 
@@ -43,7 +45,7 @@ export async function runIngress(
   });
 
   bot.on(['message:voice', 'message:audio'], async (ctx) => {
-    await handleAudio(ctx, cfg, queue, bucket);
+    await handleAudio(ctx, cfg, queue, bucket, store);
   });
 
   bot.catch((err) => {

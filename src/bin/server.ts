@@ -17,6 +17,7 @@ import { createQueue } from '../queue/factory.ts';
 import { createBucket } from '../bucket/factory.ts';
 import { runIngress } from '../telegram/ingress/index.ts';
 import { runNotifier } from '../telegram/notifier/index.ts';
+import { InMemoryLanguageStore } from '../telegram/language_store.ts';
 import { mkLog } from '../log.ts';
 
 const log = mkLog('server');
@@ -66,6 +67,7 @@ async function main(): Promise<void> {
   const queue = createQueue(cfg.queue);
   const bucket = createBucket(cfg.bucket);
   const bot = new Bot(cfg.telegram.bot_token);
+  const store = new InMemoryLanguageStore();
 
   const ac = new AbortController();
   const onSig = (sig: NodeJS.Signals): void => {
@@ -77,8 +79,8 @@ async function main(): Promise<void> {
 
   try {
     await Promise.all([
-      runIngress(cfg, queue, bucket, bot, ac.signal),
-      runNotifier(cfg, queue, bot.api, ac.signal),
+      runIngress(cfg, queue, bucket, bot, ac.signal, store),
+      runNotifier(cfg, queue, bot.api, ac.signal, store),
     ]);
   } finally {
     process.off('SIGINT', onSig);

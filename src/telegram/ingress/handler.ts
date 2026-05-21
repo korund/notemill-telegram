@@ -9,6 +9,7 @@ import { buildAudioKey, buildTranscribeJob, tgDedupKey } from '../../wire/build.
 
 import { downloadFile, extensionOf } from './download.ts';
 import { mkLog } from '../../log.ts';
+import type { LanguageStore } from '../language_store.ts';
 
 const log = mkLog('ingress');
 const TRANSCRIBE_QUEUE = 'transcribe';
@@ -18,10 +19,12 @@ export async function handleAudio(
   cfg: Config,
   queue: Queue,
   bucket: Bucket,
+  store: LanguageStore,
 ): Promise<void> {
   const msg = ctx.message;
   if (!msg) return;
   const updateId = ctx.update.update_id;
+  store.remember(updateId, ctx.from?.language_code);
   const chatId = msg.chat.id;
   const messageId = msg.message_id;
   const userId = ctx.from?.id;

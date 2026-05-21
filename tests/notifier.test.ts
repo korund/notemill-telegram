@@ -7,6 +7,9 @@ import type { Config } from '../src/config';
 import { handleResult, handleUnknownVariant } from '../src/telegram/notifier/handler.ts';
 import type { NotifyResult } from '../src/wire/types.ts';
 import type { ParseNotifyResult } from '../src/wire/parse.ts';
+import type { LanguageStore } from '../src/telegram/language_store.ts';
+import ruMessages from '../src/i18n/ru.json' with { type: 'json' };
+import enMessages from '../src/i18n/en.json' with { type: 'json' };
 
 function makeConfig(): Config {
   return {
@@ -45,6 +48,14 @@ function makeApi(): {
   return { api, setReaction, sendMessage };
 }
 
+// Fake store: returns a preconfigured language for any update_id.
+function makeStore(lang: string | undefined): LanguageStore {
+  return {
+    remember: () => undefined,
+    recall: () => lang,
+  };
+}
+
 function noSpeechNotify(): NotifyResult {
   return {
     v: 1,
@@ -56,10 +67,10 @@ function noSpeechNotify(): NotifyResult {
 }
 
 describe('handleResult: no_speech', () => {
-  test('sets the no_speech reaction and sends the Russian reply', async () => {
+  test('sets the no_speech reaction and sends the Russian reply when lang=ru', async () => {
     const cfg = makeConfig();
     const { api, setReaction, sendMessage } = makeApi();
-    await handleResult(cfg, api, noSpeechNotify());
+    await handleResult(cfg, api, noSpeechNotify(), makeStore('ru'));
 
     assert.equal(setReaction.mock.callCount(), 1);
     const reactArgs = setReaction.mock.calls[0]?.arguments;
@@ -72,15 +83,35 @@ describe('handleResult: no_speech', () => {
     assert.equal(sendMessage.mock.callCount(), 1);
     const sendArgs = sendMessage.mock.calls[0]?.arguments;
     assert.equal(sendArgs?.[0], 100);
-    assert.equal(sendArgs?.[1], 'Не услышал речи в записи.');
+    assert.equal(sendArgs?.[1], ruMessages.no_speech_reply);
     assert.deepEqual(sendArgs?.[2], { reply_parameters: { message_id: 200 } });
+  });
+
+  test('sends the English fallback reply when lang is unknown', async () => {
+    const cfg = makeConfig();
+    const { api, sendMessage } = makeApi();
+    await handleResult(cfg, api, noSpeechNotify(), makeStore(undefined));
+
+    assert.equal(sendMessage.mock.callCount(), 1);
+    const sendArgs = sendMessage.mock.calls[0]?.arguments;
+    assert.equal(sendArgs?.[1], enMessages.no_speech_reply);
+  });
+
+  test('sends English reply for an unmapped BCP-47 language code', async () => {
+    const cfg = makeConfig();
+    const { api, sendMessage } = makeApi();
+    await handleResult(cfg, api, noSpeechNotify(), makeStore('fr-FR'));
+
+    assert.equal(sendMessage.mock.callCount(), 1);
+    const sendArgs = sendMessage.mock.calls[0]?.arguments;
+    assert.equal(sendArgs?.[1], enMessages.no_speech_reply);
   });
 
   test('skips reaction and reply when reactions are disabled', async () => {
     const cfg = makeConfig();
     cfg.reactions.enabled = false;
     const { api, setReaction, sendMessage } = makeApi();
-    await handleResult(cfg, api, noSpeechNotify());
+    await handleResult(cfg, api, noSpeechNotify(), makeStore('ru'));
 
     assert.equal(setReaction.mock.callCount(), 0);
     assert.equal(sendMessage.mock.callCount(), 0);
@@ -101,7 +132,7 @@ describe('handleUnknownVariant', () => {
   test('sets the error reaction and sends a diagnostic reply', async () => {
     const cfg = makeConfig();
     const { api, setReaction, sendMessage } = makeApi();
-    await handleUnknownVariant(cfg, api, unknownVariant());
+    await handleUnknownVariant(cfg, api, unknownVariant(), makeStore(undefined));
 
     assert.equal(setReaction.mock.callCount(), 1);
     const reactArgs = setReaction.mock.calls[0]?.arguments;
@@ -120,7 +151,7 @@ describe('handleUnknownVariant', () => {
     const cfg = makeConfig();
     cfg.reactions.enabled = false;
     const { api, setReaction, sendMessage } = makeApi();
-    await handleUnknownVariant(cfg, api, unknownVariant());
+    await handleUnknownVariant(cfg, api, unknownVariant(), makeStore(undefined));
 
     assert.equal(setReaction.mock.callCount(), 0);
     assert.equal(sendMessage.mock.callCount(), 0);

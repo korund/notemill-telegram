@@ -1,9 +1,11 @@
+import type { Messages } from '../../i18n';
+
 const ERROR_MSG_MAX = 200;
 
-export function formatNoSpeechReply(reason: 'silent'): string {
+export function formatNoSpeechReply(reason: 'silent', messages: Messages): string {
   switch (reason) {
     case 'silent':
-      return 'Не услышал речи в записи.';
+      return messages.no_speech_reply;
   }
 }
 

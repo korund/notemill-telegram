@@ -6,7 +6,7 @@
 //                         text containing the error_code and a truncated
 //                         error_msg.
 //   - status=no_speech -> set the `no_speech` reaction and reply with a
-//                         short Russian message explaining nothing was
+//                         short locale-aware message explaining nothing was
 //                         heard. Not a failure: do not retry.
 //
 // Unparseable rows are logged and dropped. Successfully handled rows are
@@ -23,6 +23,7 @@ import { parseNotifyResult, type ParseNotifyResult } from '../../wire/parse.ts';
 import { NOTIFICATIONS_QUEUE, deleteSafe } from '../api.ts';
 import { handleResult, handleUnknownVariant } from './handler.ts';
 import { mkLog } from '../../log.ts';
+import type { LanguageStore } from '../language_store.ts';
 
 const log = mkLog('notifier');
 
@@ -32,6 +33,7 @@ export async function runNotifier(
   queue: Queue,
   api: Api,
   signal: AbortSignal,
+  store: LanguageStore,
 ): Promise<void> {
   log.info(
     { queue: `queue_${NOTIFICATIONS_QUEUE}`, poll_interval_ms: cfg.queue.poll_interval_ms },
@@ -62,9 +64,9 @@ export async function runNotifier(
     }
 
     if (parsed.kind === 'unknown_variant') {
-      await handleUnknownVariant(cfg, api, parsed);
+      await handleUnknownVariant(cfg, api, parsed, store);
     } else {
-      await handleResult(cfg, api, parsed.value);
+      await handleResult(cfg, api, parsed.value, store);
     }
     await deleteSafe(queue, msg.id);
   }

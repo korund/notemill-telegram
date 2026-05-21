@@ -3,14 +3,21 @@ import { Api } from 'grammy';
 import type { Config } from '../../config';
 import type { NotifyResult } from '../../wire/types.ts';
 import type { ParseNotifyResult } from '../../wire/parse.ts';
+import type { LanguageStore } from '../language_store.ts';
 
 import { setReactionSafe } from '../api.ts';
 import { formatNoSpeechReply, formatErrorReply } from './replies.ts';
+import { pickMessages } from '../../i18n';
 import { mkLog } from '../../log.ts';
 
 const log = mkLog('notifier');
 
-export async function handleResult(cfg: Config, api: Api, n: NotifyResult): Promise<void> {
+export async function handleResult(
+  cfg: Config,
+  api: Api,
+  n: NotifyResult,
+  store: LanguageStore,
+): Promise<void> {
   const { chat_id, message_id } = n.source;
   const r = n.result;
 
@@ -28,7 +35,9 @@ export async function handleResult(cfg: Config, api: Api, n: NotifyResult): Prom
 
   if (r.status === 'no_speech') {
     await setReactionSafe(api, chat_id, message_id, cfg.reactions.no_speech);
-    const text = formatNoSpeechReply(r.reason);
+    const lang = store.recall(n.source.update_id);
+    const messages = pickMessages(lang);
+    const text = formatNoSpeechReply(r.reason, messages);
     try {
       await api.sendMessage(chat_id, text, { reply_parameters: { message_id } });
     } catch (err) {
@@ -52,8 +61,11 @@ export async function handleUnknownVariant(
   cfg: Config,
   api: Api,
   u: Extract<ParseNotifyResult, { kind: 'unknown_variant' }>,
+  store: LanguageStore,
 ): Promise<void> {
   const { chat_id, message_id } = u.source;
+  // consume the store entry even though we don't use the locale here
+  store.recall(u.source.update_id);
   log.warn(
     { chat_id, message_id, dedup_key: u.dedup_key, v: u.v, status: u.status },
     'unknown variant, dropping; update bot to handle this variant',
