@@ -1,4 +1,4 @@
-import type { Messages } from '../../i18n';
+import type { Messages } from '../../i18n/index.ts';
 
 const ERROR_MSG_MAX = 200;
 

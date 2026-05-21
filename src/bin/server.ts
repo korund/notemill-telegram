@@ -12,7 +12,7 @@
 import { parseArgs } from 'node:util';
 import { Bot } from 'grammy';
 
-import { loadConfig } from '../config';
+import { loadConfig } from '../config/index.ts';
 import { createQueue } from '../queue/factory.ts';
 import { createBucket } from '../bucket/factory.ts';
 import { runIngress } from '../telegram/ingress/index.ts';

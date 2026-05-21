@@ -1,13 +1,13 @@
 import { Api } from 'grammy';
 
-import type { Config } from '../../config';
+import type { Config } from '../../config/index.ts';
 import type { NotifyResult } from '../../wire/types.ts';
 import type { ParseNotifyResult } from '../../wire/parse.ts';
 import type { LanguageStore } from '../language_store.ts';
 
 import { setReactionSafe } from '../api.ts';
 import { formatNoSpeechReply, formatErrorReply } from './replies.ts';
-import { pickMessages } from '../../i18n';
+import { pickMessages } from '../../i18n/index.ts';
 import { mkLog } from '../../log.ts';
 
 const log = mkLog('notifier');

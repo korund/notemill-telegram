@@ -3,7 +3,7 @@ import { strict as assert } from 'node:assert';
 
 import type { Api } from 'grammy';
 
-import type { Config } from '../src/config';
+import type { Config } from '../src/config/index.ts';
 import { handleResult, handleUnknownVariant } from '../src/telegram/notifier/handler.ts';
 import type { NotifyResult } from '../src/wire/types.ts';
 import type { ParseNotifyResult } from '../src/wire/parse.ts';

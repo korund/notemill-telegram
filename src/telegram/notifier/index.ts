@@ -16,7 +16,7 @@
 
 import { Api } from 'grammy';
 
-import type { Config } from '../../config';
+import type { Config } from '../../config/index.ts';
 import type { Queue, QueueMessage } from '../../queue/types.ts';
 import { parseNotifyResult, type ParseNotifyResult } from '../../wire/parse.ts';
 

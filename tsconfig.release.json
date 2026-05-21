@@ -8,5 +8,6 @@
     "outDir": "dist",
     "declaration": false,
     "sourceMap": false
-  }
+  },
+  "include": ["src/**/*.ts"]
 }

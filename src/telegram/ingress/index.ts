@@ -11,7 +11,7 @@
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import { Bot, webhookCallback } from 'grammy';
 
-import type { Config } from '../../config';
+import type { Config } from '../../config/index.ts';
 import type { Queue } from '../../queue/types.ts';
 import type { Bucket } from '../../bucket/types.ts';
 

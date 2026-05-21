@@ -1,7 +1,7 @@
 import { ulid } from 'ulid';
 import type { Context } from 'grammy';
 
-import type { Config } from '../../config';
+import type { Config } from '../../config/index.ts';
 import type { Queue } from '../../queue/types.ts';
 import type { Bucket } from '../../bucket/types.ts';
 import { BucketAlreadyExists } from '../../bucket/types.ts';
