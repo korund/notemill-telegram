@@ -1,4 +1,4 @@
-// produce.ts — Slice 1 stub producer (no Telegram).
+// produce.ts -- Slice 1 stub producer (no Telegram).
 //
 // Reads an audio file from disk, mints a ULID + audio_key, drops the bytes
 // into the FS bucket, and INSERTs a TranscribeJob into queue_transcribe so

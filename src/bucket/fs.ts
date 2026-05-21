@@ -4,7 +4,7 @@
 //   1. Write payload to a temporary file: `{target}.tmp.{pid}.{rand}` with
 //      exclusive-create flag (so two concurrent producers cannot pick the
 //      same temp).
-//   2. fs.link(tmp, target) — link() fails with EEXIST if `target` already
+//   2. fs.link(tmp, target) -- link() fails with EEXIST if `target` already
 //      exists, giving us no-clobber semantics atomically.
 //   3. fs.unlink(tmp) to drop the temp; the target keeps the only remaining
 //      link.

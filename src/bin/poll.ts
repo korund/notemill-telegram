@@ -1,4 +1,4 @@
-// poll.ts — Slice 1 stub poller for queue_notifications.
+// poll.ts -- Slice 1 stub poller for queue_notifications.
 //
 // Tight loop:
 //   1. peek the oldest visible row in the notifications queue
