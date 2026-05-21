@@ -1,7 +1,7 @@
 import { describe, test } from 'node:test';
 import { strict as assert } from 'node:assert';
 
-import { parseNotifyResult } from './wire.ts';
+import { parseNotifyResult } from '../src/wire/parse.ts';
 
 function notify(result: Record<string, unknown>): string {
   return JSON.stringify({
@@ -56,6 +56,9 @@ describe('parseNotifyResult: no_speech', () => {
   });
 });
 
+// Tolerance discipline: parser returns unknown_variant on producer-vs-
+// worker skew, i.e. on unknown `v` AND on unknown enum values inside a
+// known `v`. Throw is reserved for structurally broken envelopes.
 describe('parseNotifyResult: tolerance', () => {
   test('returns unknown_variant for an unknown status', () => {
     const parsed = parseNotifyResult(

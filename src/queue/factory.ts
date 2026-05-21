@@ -1,4 +1,4 @@
-import type { QueueConfig } from '../config.ts';
+import type { QueueConfig } from '../config';
 import type { Queue } from './types.ts';
 import { SqliteQueue } from './sqlite.ts';
 

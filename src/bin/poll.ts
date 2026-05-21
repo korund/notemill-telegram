@@ -13,7 +13,8 @@
 import { parseArgs } from "node:util";
 
 import { SqliteQueue } from "../queue/sqlite.ts";
-import { parseNotifyResult, type NotifyResult } from "../wire.ts";
+import { parseNotifyResult } from "../wire/parse.ts";
+import type { NotifyResult } from "../wire/types.ts";
 
 interface CliArgs {
   dbPath: string;

@@ -9,7 +9,7 @@
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "test": "node --import tsx --test \"src/**/*.test.ts\"",
+    "test": "node --import tsx --test \"tests/**/*.test.ts\"",
     "produce": "node --import tsx src/bin/produce.ts",
     "poll": "node --import tsx src/bin/poll.ts",
     "server": "node --import tsx src/bin/server.ts"

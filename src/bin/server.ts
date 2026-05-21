@@ -12,11 +12,11 @@
 import { parseArgs } from 'node:util';
 import { Bot } from 'grammy';
 
-import { loadConfig } from '../config.ts';
+import { loadConfig } from '../config';
 import { createQueue } from '../queue/factory.ts';
 import { createBucket } from '../bucket/factory.ts';
-import { runIngress } from '../ingress.ts';
-import { runNotifier } from '../notifier.ts';
+import { runIngress } from '../telegram/ingress/index.ts';
+import { runNotifier } from '../telegram/notifier/index.ts';
 
 interface CliArgs {
   configPath: string;

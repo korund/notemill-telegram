@@ -1,4 +1,4 @@
-import type { BucketConfig } from '../config.ts';
+import type { BucketConfig } from '../config';
 import type { Bucket } from './types.ts';
 import { FsBucket } from './fs.ts';
 

@@ -16,12 +16,8 @@ import { ulid } from "ulid";
 
 import { FsBucket } from "../bucket/fs.ts";
 import { SqliteQueue } from "../queue/sqlite.ts";
-import {
-  WIRE_VERSION,
-  buildAudioKey,
-  tgDedupKey,
-  type TranscribeJob,
-} from "../wire.ts";
+import { WIRE_VERSION, type TranscribeJob } from "../wire/types.ts";
+import { buildAudioKey, tgDedupKey } from "../wire/build.ts";
 
 interface CliArgs {
   audioPath: string;
