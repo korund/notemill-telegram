@@ -16,8 +16,7 @@ import { ulid } from "ulid";
 
 import { FsBucket } from "../bucket/fs.ts";
 import { SqliteQueue } from "../queue/sqlite.ts";
-import { WIRE_VERSION, type TranscribeJob } from "../wire/types.ts";
-import { buildAudioKey, tgDedupKey } from "../wire/build.ts";
+import { buildAudioKey, buildTranscribeJob, tgDedupKey } from "../wire/build.ts";
 
 interface CliArgs {
   audioPath: string;
@@ -150,30 +149,18 @@ async function main(): Promise<void> {
 
   // 2. Build TranscribeJob.
   const dedupKey = tgDedupKey(args.chatId, args.messageId);
-  const hintsMime = args.mime;
 
-  const job: TranscribeJob = {
-    v: WIRE_VERSION,
-    type: "transcribe",
+  const job = buildTranscribeJob({
     dedup_key: dedupKey,
     audio_key: audioKey,
-    source: {
-      kind: "telegram",
-      chat_id: args.chatId,
-      message_id: args.messageId,
-      update_id: args.updateId,
-      ...(args.userId !== undefined ? { user_id: args.userId } : {}),
-      received_at: now.toISOString(),
-    },
-    ...(hintsMime !== undefined || args.lang !== undefined
-      ? {
-          hints: {
-            ...(hintsMime !== undefined ? { mime: hintsMime } : {}),
-            ...(args.lang !== undefined ? { lang: args.lang } : {}),
-          },
-        }
-      : {}),
-  };
+    chat_id: args.chatId,
+    message_id: args.messageId,
+    update_id: args.updateId,
+    ...(args.userId !== undefined ? { user_id: args.userId } : {}),
+    received_at: now.toISOString(),
+    ...(args.mime !== undefined ? { mime: args.mime } : {}),
+    ...(args.lang !== undefined ? { lang: args.lang } : {}),
+  });
 
   // 3. INSERT JSON into queue_<name>.
   const queue = SqliteQueue.open(args.dbPath);

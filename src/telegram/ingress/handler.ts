@@ -5,8 +5,7 @@ import type { Config } from '../../config';
 import type { Queue } from '../../queue/types.ts';
 import type { Bucket } from '../../bucket/types.ts';
 import { BucketAlreadyExists } from '../../bucket/types.ts';
-import { WIRE_VERSION, type TranscribeJob } from '../../wire/types.ts';
-import { buildAudioKey, tgDedupKey } from '../../wire/build.ts';
+import { buildAudioKey, buildTranscribeJob, tgDedupKey } from '../../wire/build.ts';
 
 import { downloadFile, extensionOf } from './download.ts';
 
@@ -45,20 +44,15 @@ export async function handleAudio(
     throw err;
   }
 
-  const job: TranscribeJob = {
-    v: WIRE_VERSION,
-    type: 'transcribe',
+  const job = buildTranscribeJob({
     dedup_key: tgDedupKey(chatId, messageId),
     audio_key: audioKey,
-    source: {
-      kind: 'telegram',
-      chat_id: chatId,
-      message_id: messageId,
-      update_id: updateId,
-      ...(userId !== undefined ? { user_id: userId } : {}),
-      received_at: new Date().toISOString(),
-    },
-  };
+    chat_id: chatId,
+    message_id: messageId,
+    update_id: updateId,
+    ...(userId !== undefined ? { user_id: userId } : {}),
+    received_at: new Date().toISOString(),
+  });
   await queue.enqueue(TRANSCRIBE_QUEUE, JSON.stringify(job));
 
   if (cfg.reactions.enabled) {

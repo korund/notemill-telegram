@@ -6,6 +6,9 @@ import {
   NotifyResultNoSpeechSchema,
   NotifyResultBodySchema,
   NotifyResultV1Schema,
+  TelegramSourceSchema,
+  JobHintsSchema,
+  TranscribeJobSchema,
 } from './schema.ts';
 
 // Wire-format types for queue payloads.
@@ -16,29 +19,9 @@ export const WIRE_VERSION = 1 as const;
 
 export type SourceKind = 'telegram';
 
-export interface TelegramSource {
-  kind: 'telegram';
-  chat_id: number;
-  message_id: number;
-  update_id: number;
-  user_id?: number;
-  received_at: string; // RFC3339 UTC
-}
-
-export interface JobHints {
-  mime?: string;
-  duration_sec?: number;
-  lang?: string; // BCP-47
-}
-
-export interface TranscribeJob {
-  v: 1;
-  type: 'transcribe';
-  dedup_key: string;
-  audio_key: string;
-  source: TelegramSource;
-  hints?: JobHints;
-}
+export type TelegramSource = z.infer<typeof TelegramSourceSchema>;
+export type JobHints = z.infer<typeof JobHintsSchema>;
+export type TranscribeJob = z.infer<typeof TranscribeJobSchema>;
 
 // NotifyResult types re-exported from schemas.
 export type NotifySource = z.infer<typeof NotifySourceSchema>;
