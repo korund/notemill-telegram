@@ -1,6 +1,6 @@
 {
   "name": "notemill-telegram",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "private": true,
   "description": "Telegram producer for the Notemill worker (webhook-based, with optional message reactions).",
   "type": "module",
