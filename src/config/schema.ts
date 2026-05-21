@@ -1,72 +1,48 @@
-import { ConfigError, expectObject, expectString, expectNumber } from './util.ts';
+import { z } from 'zod';
 
-export interface QueueConfig {
-  backend: 'sqlite';
-  poll_interval_ms: number;
-  sqlite: { path: string };
-}
+// Zod v4 schemas for config file validation.
+// Types are re-exported via types.ts as z.infer aliases.
 
-export interface BucketConfig {
-  backend: 'fs';
-  fs: { root: string };
-}
+export const QueueConfigSchema = z.object({
+  backend: z.literal('sqlite'),
+  poll_interval_ms: z.number().finite(),
+  sqlite: z.object({
+    path: z.string().min(1),
+  }),
+});
 
-export interface ReactionsConfig {
-  enabled: boolean;
-  queued: string;
-  done: string;
-  error: string;
-  no_speech: string;
-}
+export const BucketConfigSchema = z.object({
+  backend: z.literal('fs'),
+  fs: z.object({
+    root: z.string().min(1),
+  }),
+});
 
-export interface Config {
-  telegram: { bot_token: string };
-  webhook: {
-    url: string;
-    listen_host: string;
-    listen_port: number;
-    path: string;
-    secret: string;
-  };
-  queue: QueueConfig;
-  bucket: BucketConfig;
-  access: { allowed_user_ids: number[] };
-  reactions: ReactionsConfig;
-}
+// Reactions block after decodeReaction has been applied.
+// All four reaction fields are strings (emoji glyphs).
+export const ReactionsConfigSchema = z.object({
+  enabled: z.boolean(),
+  queued: z.string().min(1),
+  done: z.string().min(1),
+  error: z.string().min(1),
+  no_speech: z.string().min(1),
+});
 
-export function parseQueue(raw: Record<string, unknown>): QueueConfig {
-  const backend = expectString(raw, 'queue.backend', 'backend');
-  if (backend !== 'sqlite') {
-    throw new ConfigError(`config: queue.backend "${backend}" not supported (only "sqlite")`);
-  }
-  const sqlite = expectObject(raw, 'sqlite', 'queue.sqlite');
-  return {
-    backend,
-    poll_interval_ms: expectNumber(raw, 'queue.poll_interval_ms', 'poll_interval_ms'),
-    sqlite: { path: expectString(sqlite, 'queue.sqlite.path', 'path') },
-  };
-}
-
-export function parseBucket(raw: Record<string, unknown>): BucketConfig {
-  const backend = expectString(raw, 'bucket.backend', 'backend');
-  if (backend !== 'fs') {
-    throw new ConfigError(`config: bucket.backend "${backend}" not supported (only "fs")`);
-  }
-  const fs = expectObject(raw, 'fs', 'bucket.fs');
-  return { backend, fs: { root: expectString(fs, 'bucket.fs.root', 'root') } };
-}
-
-export function parseUserIds(raw: Record<string, unknown>): number[] {
-  const value = raw['allowed_user_ids'];
-  if (!Array.isArray(value)) {
-    throw new ConfigError('config: access.allowed_user_ids must be a list');
-  }
-  return value.map((entry, idx) => {
-    if (typeof entry !== 'number' || !Number.isInteger(entry)) {
-      throw new ConfigError(
-        `config: access.allowed_user_ids[${idx}] must be an integer, got ${typeof entry}`,
-      );
-    }
-    return entry;
-  });
-}
+export const ConfigSchema = z.object({
+  telegram: z.object({
+    bot_token: z.string().min(1),
+  }),
+  webhook: z.object({
+    url: z.string().min(1),
+    listen_host: z.string().min(1),
+    listen_port: z.number().int().positive(),
+    path: z.string().min(1),
+    secret: z.string().min(1),
+  }),
+  queue: QueueConfigSchema,
+  bucket: BucketConfigSchema,
+  access: z.object({
+    allowed_user_ids: z.array(z.number().int()),
+  }),
+  reactions: ReactionsConfigSchema,
+});

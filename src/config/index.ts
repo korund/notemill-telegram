@@ -1,72 +1,126 @@
 import { readFileSync } from 'node:fs';
 import { parse as parseYaml } from 'yaml';
+import { z } from 'zod';
 
-import type { Config, QueueConfig, BucketConfig, ReactionsConfig } from './schema.ts';
-import { parseQueue, parseBucket, parseUserIds } from './schema.ts';
+import { ConfigSchema } from './schema.ts';
 import { resolveSecret, decodeReaction } from './secrets.ts';
-import { ConfigError, expectObject, expectString, expectNumber, expectBool, optString } from './util.ts';
+import { ConfigError, isErrnoCode } from './util.ts';
 
 export { ConfigError } from './util.ts';
-export type { Config, QueueConfig, BucketConfig, ReactionsConfig } from './schema.ts';
+export type { Config, QueueConfig, BucketConfig, ReactionsConfig } from './types.ts';
 
 const DEFAULT_REACTION_QUEUED = 'U+270D';
 const DEFAULT_REACTION_DONE = 'U+1F44D';
 const DEFAULT_REACTION_ERROR = 'U+1F44E';
 const DEFAULT_REACTION_NO_SPEECH = 'U+1F442';
 
-
-export function loadConfig(yamlPath: string, overrides: string[] = []): Config {
-  let raw = parseYaml(readFileSync(yamlPath, 'utf8')) as Record<string, unknown>;
-  if (overrides.length > 0) {
-    raw = applyOverrides(raw, overrides);
+export function loadConfig(yamlPath: string, overrides: string[] = []): z.infer<typeof ConfigSchema> {
+  let raw: unknown;
+  try {
+    raw = parseYaml(readFileSync(yamlPath, 'utf8'));
+  } catch (err) {
+    if (isErrnoCode(err, 'ENOENT')) {
+      throw new ConfigError(`config: file not found: ${yamlPath}`);
+    }
+    throw new ConfigError(`config: failed to read ${yamlPath}: ${(err as Error).message}`);
   }
-  if (!raw || typeof raw !== 'object') {
+
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
     throw new ConfigError(`config: ${yamlPath} is empty or not a mapping`);
   }
 
-  const telegramRaw = expectObject(raw, 'telegram');
-  const webhookRaw = expectObject(raw, 'webhook');
-  const queueRaw = expectObject(raw, 'queue');
-  const bucketRaw = expectObject(raw, 'bucket');
-  const accessRaw = expectObject(raw, 'access');
-  const reactionsRaw = expectObject(raw, 'reactions');
+  let doc = raw as Record<string, unknown>;
+  if (overrides.length > 0) {
+    doc = applyOverrides(doc, overrides);
+  }
 
-  const botToken = resolveSecret('telegram.bot_token', telegramRaw, 'bot_token_file', 'bot_token_env');
-  const webhookSecret = resolveSecret('webhook.secret', webhookRaw, 'secret_file', 'secret_env');
+  // Resolve secrets and decode reactions before schema validation.
+  // These steps read external state (files, env vars) and inject the results
+  // into the raw document so that ConfigSchema sees plain string values.
+  const resolved = resolveRaw(doc);
 
-  const webhookUrl = expectString(webhookRaw, 'webhook.url', 'url');
+  const result = ConfigSchema.safeParse(resolved);
+  if (!result.success) throw toConfigError(result.error);
+  return result.data;
+}
+
+// Build the fully-resolved raw object for safeParse.
+// Secrets are read from files/env. Reactions are decoded from U+XXXX notation.
+function resolveRaw(doc: Record<string, unknown>): unknown {
+  const telegram = asObject(doc, 'telegram');
+  const webhook = asObject(doc, 'webhook');
+  const queue = asObject(doc, 'queue');
+  const bucket = asObject(doc, 'bucket');
+  const access = asObject(doc, 'access');
+  const reactions = asObject(doc, 'reactions');
+
+  const botToken = resolveSecret('telegram.bot_token', telegram, 'bot_token_file', 'bot_token_env');
+  const webhookSecret = resolveSecret('webhook.secret', webhook, 'secret_file', 'secret_env');
+
+  const webhookUrl = asString(webhook, 'url', 'webhook.url');
   if (webhookUrl === 'CHANGE_ME') {
     throw new ConfigError('config: webhook.url must be set to a public URL');
   }
 
-  const queue = parseQueue(queueRaw);
-  const bucket = parseBucket(bucketRaw);
-
-  const reactions: ReactionsConfig = {
-    enabled: expectBool(reactionsRaw, 'reactions.enabled', 'enabled'),
-    queued: decodeReaction(optString(reactionsRaw, 'queued'), DEFAULT_REACTION_QUEUED),
-    done: decodeReaction(optString(reactionsRaw, 'done'), DEFAULT_REACTION_DONE),
-    error: decodeReaction(optString(reactionsRaw, 'error'), DEFAULT_REACTION_ERROR),
-    no_speech: decodeReaction(
-      optString(reactionsRaw, 'no_speech'),
-      DEFAULT_REACTION_NO_SPEECH,
-    ),
-  };
+  let webhookPath: string;
+  try {
+    webhookPath = new URL(webhookUrl).pathname;
+  } catch {
+    throw new ConfigError(`config: webhook.url is not a valid URL: ${webhookUrl}`);
+  }
 
   return {
     telegram: { bot_token: botToken },
     webhook: {
       url: webhookUrl,
-      listen_host: expectString(webhookRaw, 'webhook.listen_host', 'listen_host'),
-      listen_port: expectNumber(webhookRaw, 'webhook.listen_port', 'listen_port'),
-      path: new URL(webhookUrl).pathname,
+      listen_host: asString(webhook, 'listen_host', 'webhook.listen_host'),
+      listen_port: webhook['listen_port'],
+      path: webhookPath,
       secret: webhookSecret,
     },
     queue,
     bucket,
-    access: { allowed_user_ids: parseUserIds(accessRaw) },
-    reactions,
+    access,
+    reactions: {
+      enabled: reactions['enabled'],
+      queued: decodeReaction(optStr(reactions, 'queued'), DEFAULT_REACTION_QUEUED),
+      done: decodeReaction(optStr(reactions, 'done'), DEFAULT_REACTION_DONE),
+      error: decodeReaction(optStr(reactions, 'error'), DEFAULT_REACTION_ERROR),
+      no_speech: decodeReaction(optStr(reactions, 'no_speech'), DEFAULT_REACTION_NO_SPEECH),
+    },
   };
+}
+
+// --- minimal raw-object helpers (pre-schema, no Zod) ---
+
+function asObject(parent: Record<string, unknown>, key: string): Record<string, unknown> {
+  const value = parent[key];
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    throw new ConfigError(`config: ${key} must be a mapping`);
+  }
+  return value as Record<string, unknown>;
+}
+
+function asString(parent: Record<string, unknown>, key: string, label: string): string {
+  const value = parent[key];
+  if (typeof value !== 'string' || value.length === 0) {
+    throw new ConfigError(`config: ${label} must be a non-empty string`);
+  }
+  return value;
+}
+
+function optStr(parent: Record<string, unknown>, key: string): string | undefined {
+  const value = parent[key];
+  if (typeof value !== 'string' || value.length === 0) return undefined;
+  return value;
+}
+
+// Map ZodError to ConfigError with the first issue path + message.
+function toConfigError(err: z.ZodError): ConfigError {
+  const issue = err.issues[0];
+  const path = issue?.path.join('.') ?? '';
+  const msg = issue?.message ?? 'invalid config';
+  return new ConfigError(`config: ${path}${path ? ': ' : ''}${msg}`);
 }
 
 function applyOverrides(

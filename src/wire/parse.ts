@@ -1,4 +1,6 @@
+import { z } from 'zod';
 import type { NotifyResult, NotifySource } from './types.ts';
+import { NotifyResultV1Schema, EnvelopeBaseSchema } from './schema.ts';
 
 // Result of parsing a queue notification. `ok` carries the typed
 // `NotifyResult`; `unknown_variant` is returned when the envelope is
@@ -14,65 +16,38 @@ import type { NotifyResult, NotifySource } from './types.ts';
 // breaking schema changes; an unknown `v` is the signal that the
 // producer is behind the worker.
 export type ParseNotifyResult =
-  | { kind: "ok"; value: NotifyResult }
+  | { kind: 'ok'; value: NotifyResult }
   | {
-      kind: "unknown_variant";
+      kind: 'unknown_variant';
       v: unknown;
       status: unknown;
       dedup_key: string;
       source: NotifySource;
     };
 
-// Narrow runtime parser. Throws on truly malformed payloads (not an
-// object, missing source / dedup_key, broken result shape) -- those
-// are wire-protocol breakage, not version skew. Returns
-// `unknown_variant` on producer-vs-worker skew (unknown `v` or
-// unknown `status` within a known `v`).
 export function parseNotifyResult(raw: string): ParseNotifyResult {
   const obj: unknown = JSON.parse(raw);
-  if (typeof obj !== "object" || obj === null) {
-    throw new Error("NotifyResult: not an object");
-  }
-  const o = obj as Record<string, unknown>;
-  if (o["type"] !== "notify_result") throw new Error(`NotifyResult: bad type=${String(o["type"])}`);
-  if (typeof o["dedup_key"] !== "string") throw new Error("NotifyResult: dedup_key missing");
-
-  const src = o["source"];
-  if (typeof src !== "object" || src === null) throw new Error("NotifyResult: source missing");
-  const s = src as Record<string, unknown>;
-  if (s["kind"] !== "telegram") throw new Error(`NotifyResult: bad source.kind=${String(s["kind"])}`);
-  if (typeof s["chat_id"] !== "number") throw new Error("NotifyResult: source.chat_id missing");
-  if (typeof s["message_id"] !== "number") throw new Error("NotifyResult: source.message_id missing");
-  if (typeof s["update_id"] !== "number") throw new Error("NotifyResult: source.update_id missing");
-
-  const source: NotifySource = {
-    kind: "telegram",
-    chat_id: s["chat_id"],
-    message_id: s["message_id"],
-    update_id: s["update_id"],
-  };
-  const dedup_key = o["dedup_key"];
-
-  const res = o["result"];
-  if (typeof res !== "object" || res === null) throw new Error("NotifyResult: result missing");
-  const r = res as Record<string, unknown>;
-  const status = r["status"];
-
-  if (o["v"] !== 1) {
-    return { kind: "unknown_variant", v: o["v"], status, dedup_key, source };
-  }
-  if (status !== "ok" && status !== "error" && status !== "no_speech") {
-    return { kind: "unknown_variant", v: o["v"], status, dedup_key, source };
-  }
-  if (typeof r["duration_ms"] !== "number") throw new Error("NotifyResult: result.duration_ms missing");
-
-  if (status === "no_speech") {
-    const reason = r["reason"];
-    if (reason !== "silent") {
-      throw new Error(`NotifyResult: bad result.reason=${String(reason)}`);
-    }
+  if (typeof obj !== 'object' || obj === null) {
+    throw new Error('NotifyResult: not an object');
   }
 
-  // Cast is safe after the checks above; we trust the worker for the rest.
-  return { kind: "ok", value: obj as NotifyResult };
+  const envelope = EnvelopeBaseSchema.safeParse(obj);
+  if (!envelope.success) throw toError(envelope.error);
+  const { v, dedup_key, source } = envelope.data;
+  const status = envelope.data.result.status;
+
+  if (v !== 1 || (status !== 'ok' && status !== 'error' && status !== 'no_speech')) {
+    return { kind: 'unknown_variant', v, status, dedup_key, source };
+  }
+
+  const parsed = NotifyResultV1Schema.safeParse(obj);
+  if (!parsed.success) throw toError(parsed.error);
+  return { kind: 'ok', value: parsed.data };
+}
+
+function toError(err: z.ZodError): Error {
+  const issue = err.issues[0];
+  const path = issue?.path.join('.') ?? '';
+  const msg = issue?.message ?? 'invalid payload';
+  return new Error(`NotifyResult: ${path}${path ? ': ' : ''}${msg}`);
 }

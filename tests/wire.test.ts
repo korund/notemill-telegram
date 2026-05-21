@@ -34,7 +34,7 @@ describe('parseNotifyResult: no_speech', () => {
   test('throws when reason is missing', () => {
     assert.throws(
       () => parseNotifyResult(notify({ status: 'no_speech', duration_ms: 42 })),
-      /bad result\.reason/,
+      /reason/i,
     );
   });
 
@@ -44,14 +44,14 @@ describe('parseNotifyResult: no_speech', () => {
         parseNotifyResult(
           notify({ status: 'no_speech', reason: 'too_noisy', duration_ms: 42 }),
         ),
-      /bad result\.reason/,
+      /reason/i,
     );
   });
 
   test('throws when duration_ms is missing', () => {
     assert.throws(
       () => parseNotifyResult(notify({ status: 'no_speech', reason: 'silent' })),
-      /duration_ms missing/,
+      /duration_ms/i,
     );
   });
 });
@@ -60,7 +60,7 @@ describe('parseNotifyResult: no_speech', () => {
 // worker skew, i.e. on unknown `v` AND on unknown enum values inside a
 // known `v`. Throw is reserved for structurally broken envelopes.
 describe('parseNotifyResult: tolerance', () => {
-  test('returns unknown_variant for an unknown status', () => {
+  test('returns unknown_variant for an unknown status within a known v', () => {
     const parsed = parseNotifyResult(
       notify({ status: 'too_noisy', duration_ms: 99 }),
     );
@@ -74,7 +74,7 @@ describe('parseNotifyResult: tolerance', () => {
 
   test('returns unknown_variant for an unknown wire version', () => {
     const raw = JSON.stringify({
-      v: 2,
+      v: 99,
       type: 'notify_result',
       dedup_key: 'tg:1:2',
       source: { kind: 'telegram', chat_id: 1, message_id: 2, update_id: 3 },
@@ -83,7 +83,7 @@ describe('parseNotifyResult: tolerance', () => {
     const parsed = parseNotifyResult(raw);
     assert.equal(parsed.kind, 'unknown_variant');
     if (parsed.kind !== 'unknown_variant') return;
-    assert.equal(parsed.v, 2);
+    assert.equal(parsed.v, 99);
   });
 
   test('still throws on structurally broken envelope (no source)', () => {
@@ -93,10 +93,10 @@ describe('parseNotifyResult: tolerance', () => {
       dedup_key: 'tg:1:2',
       result: { status: 'ok', output_ref: 'x', duration_ms: 1 },
     });
-    assert.throws(() => parseNotifyResult(raw), /source missing/);
+    assert.throws(() => parseNotifyResult(raw), /source/i);
   });
 
   test('still throws on non-object payload', () => {
-    assert.throws(() => parseNotifyResult('null'), /not an object/);
+    assert.throws(() => parseNotifyResult('null'), Error);
   });
 });
