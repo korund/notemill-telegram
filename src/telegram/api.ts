@@ -1,6 +1,9 @@
 import { Api } from 'grammy';
 
 import type { Queue } from '../queue/types.ts';
+import { mkLog } from '../log.ts';
+
+const log = mkLog('api');
 
 export const NOTIFICATIONS_QUEUE = 'notifications';
 
@@ -15,10 +18,7 @@ export async function setReactionSafe(
       { type: 'emoji', emoji: emoji as ReactionEmoji },
     ]);
   } catch (err) {
-    const m = err instanceof Error ? err.message : String(err);
-    process.stderr.write(
-      `notifier: setMessageReaction failed (chat=${chatId}, msg=${messageId}, emoji=${emoji}): ${m}\n`,
-    );
+    log.warn({ err, chat_id: chatId, message_id: messageId, emoji }, 'setMessageReaction failed');
   }
 }
 
@@ -26,8 +26,7 @@ export async function deleteSafe(queue: Queue, id: string): Promise<void> {
   try {
     await queue.delete(NOTIFICATIONS_QUEUE, id);
   } catch (err) {
-    const m = err instanceof Error ? err.message : String(err);
-    process.stderr.write(`notifier: delete row id=${id} failed: ${m}\n`);
+    log.warn({ err, row_id: id }, 'delete row failed');
   }
 }
 

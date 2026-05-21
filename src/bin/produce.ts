@@ -17,6 +17,9 @@ import { ulid } from "ulid";
 import { FsBucket } from "../bucket/fs.ts";
 import { SqliteQueue } from "../queue/sqlite.ts";
 import { buildAudioKey, buildTranscribeJob, tgDedupKey } from "../wire/build.ts";
+import { mkLog } from "../log.ts";
+
+const log = mkLog("produce");
 
 interface CliArgs {
   audioPath: string;
@@ -186,7 +189,6 @@ async function main(): Promise<void> {
 }
 
 main().catch((err: unknown) => {
-  const msg = err instanceof Error ? err.stack ?? err.message : String(err);
-  process.stderr.write(`produce: ${msg}\n`);
+  log.error({ err }, "fatal error");
   process.exit(1);
 });

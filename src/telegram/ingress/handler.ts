@@ -8,7 +8,9 @@ import { BucketAlreadyExists } from '../../bucket/types.ts';
 import { buildAudioKey, buildTranscribeJob, tgDedupKey } from '../../wire/build.ts';
 
 import { downloadFile, extensionOf } from './download.ts';
+import { mkLog } from '../../log.ts';
 
+const log = mkLog('ingress');
 const TRANSCRIBE_QUEUE = 'transcribe';
 
 export async function handleAudio(
@@ -26,7 +28,7 @@ export async function handleAudio(
 
   const file = await ctx.getFile();
   if (!file.file_path) {
-    process.stderr.write(`ingress: file_path missing for update_id=${updateId}\n`);
+    log.warn({ update_id: updateId }, 'file_path missing');
     return;
   }
 
@@ -38,7 +40,7 @@ export async function handleAudio(
     await bucket.put(audioKey, bytes);
   } catch (err) {
     if (err instanceof BucketAlreadyExists) {
-      process.stderr.write(`ingress: ulid collision on ${audioKey}, dropping update\n`);
+      log.warn({ audio_key: audioKey }, 'ulid collision, dropping update');
       return;
     }
     throw err;
@@ -59,8 +61,7 @@ export async function handleAudio(
     try {
       await ctx.react(cfg.reactions.queued as Parameters<Context['react']>[0]);
     } catch (err) {
-      const m = err instanceof Error ? err.message : String(err);
-      process.stderr.write(`ingress: setMessageReaction failed (queued): ${m}\n`);
+      log.warn({ err }, 'setMessageReaction failed (queued)');
     }
   }
 }

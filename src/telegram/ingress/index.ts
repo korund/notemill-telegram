@@ -16,7 +16,9 @@ import type { Queue } from '../../queue/types.ts';
 import type { Bucket } from '../../bucket/types.ts';
 
 import { handleAudio } from './handler.ts';
+import { mkLog } from '../../log.ts';
 
+const log = mkLog('ingress');
 
 export async function runIngress(
   cfg: Config,
@@ -33,7 +35,7 @@ export async function runIngress(
     const uid = ctx.from?.id;
     if (uid === undefined || !allowed.has(uid)) {
       if (uid !== undefined) {
-        process.stderr.write(`ingress: WARN unauthorized user_id=${uid}\n`);
+        log.warn({ user_id: uid }, 'unauthorized user');
       }
       return;
     }
@@ -45,9 +47,7 @@ export async function runIngress(
   });
 
   bot.catch((err) => {
-    const e = err.error;
-    const msg = e instanceof Error ? e.stack ?? e.message : String(e);
-    process.stderr.write(`ingress: handler error: ${msg}\n`);
+    log.warn({ err: err.error }, 'handler error');
   });
 
   await bot.api.setWebhook(cfg.webhook.url, {
@@ -70,8 +70,9 @@ export async function runIngress(
   await new Promise<void>((resolve, reject) => {
     server.once('error', reject);
     server.listen(cfg.webhook.listen_port, cfg.webhook.listen_host, () => {
-      process.stderr.write(
-        `ingress: listening on ${cfg.webhook.listen_host}:${cfg.webhook.listen_port}${cfg.webhook.path}\n`,
+      log.info(
+        { host: cfg.webhook.listen_host, port: cfg.webhook.listen_port, path: cfg.webhook.path },
+        'listening',
       );
       resolve();
     });
@@ -87,5 +88,5 @@ export async function runIngress(
     }
     signal.addEventListener('abort', onAbort, { once: true });
   });
-  process.stderr.write('ingress: stopped\n');
+  log.info('stopped');
 }

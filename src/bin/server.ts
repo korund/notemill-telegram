@@ -17,6 +17,9 @@ import { createQueue } from '../queue/factory.ts';
 import { createBucket } from '../bucket/factory.ts';
 import { runIngress } from '../telegram/ingress/index.ts';
 import { runNotifier } from '../telegram/notifier/index.ts';
+import { mkLog } from '../log.ts';
+
+const log = mkLog('server');
 
 interface CliArgs {
   configPath: string;
@@ -66,7 +69,7 @@ async function main(): Promise<void> {
 
   const ac = new AbortController();
   const onSig = (sig: NodeJS.Signals): void => {
-    process.stderr.write(`\nserver: received ${sig}, shutting down...\n`);
+    log.info({ sig }, 'received signal, shutting down');
     ac.abort();
   };
   process.on('SIGINT', onSig);
@@ -85,7 +88,6 @@ async function main(): Promise<void> {
 }
 
 main().catch((err: unknown) => {
-  const msg = err instanceof Error ? err.stack ?? err.message : String(err);
-  process.stderr.write(`server: ${msg}\n`);
+  log.error({ err }, 'fatal error');
   process.exit(1);
 });

@@ -6,6 +6,9 @@ import type { ParseNotifyResult } from '../../wire/parse.ts';
 
 import { setReactionSafe } from '../api.ts';
 import { formatNoSpeechReply, formatErrorReply } from './replies.ts';
+import { mkLog } from '../../log.ts';
+
+const log = mkLog('notifier');
 
 export async function handleResult(cfg: Config, api: Api, n: NotifyResult): Promise<void> {
   const { chat_id, message_id } = n.source;
@@ -29,10 +32,7 @@ export async function handleResult(cfg: Config, api: Api, n: NotifyResult): Prom
     try {
       await api.sendMessage(chat_id, text, { reply_parameters: { message_id } });
     } catch (err) {
-      const m = err instanceof Error ? err.message : String(err);
-      process.stderr.write(
-        `notifier: no_speech reply failed for chat=${chat_id}: ${m}\n`,
-      );
+      log.warn({ err, chat_id }, 'no_speech reply failed');
     }
     return;
   }
@@ -44,8 +44,7 @@ export async function handleResult(cfg: Config, api: Api, n: NotifyResult): Prom
   try {
     await api.sendMessage(chat_id, text, { reply_parameters: { message_id } });
   } catch (err) {
-    const m = err instanceof Error ? err.message : String(err);
-    process.stderr.write(`notifier: error reply failed for chat=${chat_id}: ${m}\n`);
+    log.warn({ err, chat_id }, 'error reply failed');
   }
 }
 
@@ -55,10 +54,9 @@ export async function handleUnknownVariant(
   u: Extract<ParseNotifyResult, { kind: 'unknown_variant' }>,
 ): Promise<void> {
   const { chat_id, message_id } = u.source;
-  process.stderr.write(
-    `notifier: unknown variant for chat=${chat_id} msg=${message_id} ` +
-      `dedup=${u.dedup_key} v=${String(u.v)} status=${String(u.status)} -- dropping; ` +
-      `update bot to handle this variant\n`,
+  log.warn(
+    { chat_id, message_id, dedup_key: u.dedup_key, v: u.v, status: u.status },
+    'unknown variant, dropping; update bot to handle this variant',
   );
   if (!cfg.reactions.enabled) return;
 
@@ -67,10 +65,7 @@ export async function handleUnknownVariant(
   try {
     await api.sendMessage(chat_id, text, { reply_parameters: { message_id } });
   } catch (err) {
-    const m = err instanceof Error ? err.message : String(err);
-    process.stderr.write(
-      `notifier: unknown-variant reply failed for chat=${chat_id}: ${m}\n`,
-    );
+    log.warn({ err, chat_id }, 'unknown-variant reply failed');
   }
 }
 
@@ -78,8 +73,14 @@ export async function handleUnknownVariant(
 function logError(n: NotifyResult): void {
   if (n.result.status !== 'error') return;
   const { chat_id, message_id } = n.source;
-  process.stderr.write(
-    `notifier: chat=${chat_id} msg=${message_id} dedup=${n.dedup_key} ` +
-      `code=${n.result.error_code} msg=${n.result.error_msg}\n`,
+  log.warn(
+    {
+      chat_id,
+      message_id,
+      dedup_key: n.dedup_key,
+      error_code: n.result.error_code,
+      error_msg: n.result.error_msg,
+    },
+    'worker reported error',
   );
 }

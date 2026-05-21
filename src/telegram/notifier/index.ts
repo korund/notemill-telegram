@@ -22,6 +22,9 @@ import { parseNotifyResult, type ParseNotifyResult } from '../../wire/parse.ts';
 
 import { NOTIFICATIONS_QUEUE, deleteSafe } from '../api.ts';
 import { handleResult, handleUnknownVariant } from './handler.ts';
+import { mkLog } from '../../log.ts';
+
+const log = mkLog('notifier');
 
 
 export async function runNotifier(
@@ -30,16 +33,16 @@ export async function runNotifier(
   api: Api,
   signal: AbortSignal,
 ): Promise<void> {
-  process.stderr.write(
-    `notifier: polling queue_${NOTIFICATIONS_QUEUE} every ${cfg.queue.poll_interval_ms}ms\n`,
+  log.info(
+    { queue: `queue_${NOTIFICATIONS_QUEUE}`, poll_interval_ms: cfg.queue.poll_interval_ms },
+    'polling started',
   );
   while (!signal.aborted) {
     let msg: QueueMessage | null;
     try {
       msg = await queue.receive(NOTIFICATIONS_QUEUE);
     } catch (err) {
-      const m = err instanceof Error ? err.message : String(err);
-      process.stderr.write(`notifier: receive failed: ${m}\n`);
+      log.warn({ err }, 'receive failed');
       await sleep(cfg.queue.poll_interval_ms, signal);
       continue;
     }
@@ -53,10 +56,7 @@ export async function runNotifier(
     try {
       parsed = parseNotifyResult(msg.payload);
     } catch (err) {
-      const m = err instanceof Error ? err.message : String(err);
-      process.stderr.write(
-        `notifier: row id=${msg.id} unparseable, dropping. reason=${m}\n`,
-      );
+      log.warn({ err, row_id: msg.id }, 'row unparseable, dropping');
       await deleteSafe(queue, msg.id);
       continue;
     }
@@ -68,7 +68,7 @@ export async function runNotifier(
     }
     await deleteSafe(queue, msg.id);
   }
-  process.stderr.write('notifier: stopped\n');
+  log.info('stopped');
 }
 
 

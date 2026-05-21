@@ -15,6 +15,9 @@ import { parseArgs } from "node:util";
 import { SqliteQueue } from "../queue/sqlite.ts";
 import { parseNotifyResult } from "../wire/parse.ts";
 import type { NotifyResult } from "../wire/types.ts";
+import { mkLog } from "../log.ts";
+
+const log = mkLog("poll");
 
 interface CliArgs {
   dbPath: string;
@@ -104,16 +107,15 @@ async function main(): Promise<void> {
 
   const ac = new AbortController();
   const onSig = (sig: NodeJS.Signals): void => {
-    process.stderr.write(`\npoll: received ${sig}, shutting down...\n`);
+    log.info({ sig }, "received signal, shutting down");
     ac.abort();
   };
   process.on("SIGINT", onSig);
   process.on("SIGTERM", onSig);
 
-  process.stderr.write(
-    `poll: watching queue_${args.queueName} in ${args.dbPath} (interval=${args.intervalMs}ms${
-      args.once ? ", once=true" : ""
-    })\n`,
+  log.info(
+    { queue: `queue_${args.queueName}`, db: args.dbPath, interval_ms: args.intervalMs, once: args.once },
+    "watching queue",
   );
 
   try {
@@ -130,19 +132,15 @@ async function main(): Promise<void> {
       try {
         parsedRaw = parseNotifyResult(row.payload);
       } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err);
-        process.stderr.write(
-          `poll: row id=${row.id} unparseable, deleting. reason=${msg}\n` +
-            `poll: raw payload: ${row.payload}\n`,
-        );
+        log.warn({ err, row_id: row.id, raw_payload: row.payload }, "row unparseable, deleting");
         await queue.delete(args.queueName, row.id);
         continue;
       }
 
       if (parsedRaw.kind === "unknown_variant") {
-        process.stderr.write(
-          `poll: row id=${row.id} unknown variant v=${String(parsedRaw.v)} ` +
-            `status=${String(parsedRaw.status)} dedup=${parsedRaw.dedup_key} -- dropping\n`,
+        log.warn(
+          { row_id: row.id, v: parsedRaw.v, status: parsedRaw.status, dedup_key: parsedRaw.dedup_key },
+          "unknown variant, dropping",
         );
         await queue.delete(args.queueName, row.id);
         processedAny = true;
@@ -161,7 +159,7 @@ async function main(): Promise<void> {
         result: parsed.result,
       };
       process.stdout.write(JSON.stringify(line) + "\n");
-      process.stderr.write(`poll: ${summarize(parsed)}\n`);
+      log.info({ summary: summarize(parsed) }, "processed row");
 
       await queue.delete(args.queueName, row.id);
       processedAny = true;
@@ -176,7 +174,6 @@ async function main(): Promise<void> {
 }
 
 main().catch((err: unknown) => {
-  const msg = err instanceof Error ? err.stack ?? err.message : String(err);
-  process.stderr.write(`poll: ${msg}\n`);
+  log.error({ err }, "fatal error");
   process.exit(1);
 });
