@@ -74,20 +74,21 @@ export async function runNotifier(
 }
 
 
-async function sleep(ms: number, signal: AbortSignal): Promise<void> {
+export async function sleep(ms: number, signal: AbortSignal): Promise<void> {
   return new Promise((resolve) => {
     if (signal.aborted) {
       resolve();
       return;
     }
-    const t = setTimeout(resolve, ms);
-    signal.addEventListener(
-      'abort',
-      () => {
-        clearTimeout(t);
-        resolve();
-      },
-      { once: true },
-    );
+    let t: ReturnType<typeof setTimeout>;
+    const onAbort = (): void => {
+      clearTimeout(t);
+      resolve();
+    };
+    t = setTimeout(() => {
+      signal.removeEventListener('abort', onAbort);
+      resolve();
+    }, ms);
+    signal.addEventListener('abort', onAbort, { once: true });
   });
 }
