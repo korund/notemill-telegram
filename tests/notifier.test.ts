@@ -157,3 +157,57 @@ describe('handleUnknownVariant', () => {
     assert.equal(sendMessage.mock.callCount(), 0);
   });
 });
+
+// Tracking store: counts recall() calls to guard against the leak where the
+// language map entry was never consumed on the ok / reactions-disabled paths.
+function makeTrackingStore(lang: string | undefined): {
+  store: LanguageStore;
+  recallCount: () => number;
+} {
+  let recallCount = 0;
+  const store: LanguageStore = {
+    remember: () => undefined,
+    recall: () => {
+      recallCount += 1;
+      return lang;
+    },
+  };
+  return { store, recallCount: () => recallCount };
+}
+
+function okNotify(): NotifyResult {
+  return {
+    v: 1,
+    type: 'notify_result',
+    dedup_key: 'tg:1:2',
+    source: { kind: 'telegram', chat_id: 100, message_id: 200, update_id: 300 },
+    result: { status: 'ok', output_ref: 'note.md', duration_ms: 42 },
+  };
+}
+
+describe('handleResult: store entry is always consumed', () => {
+  test('recalls on the ok path', async () => {
+    const cfg = makeConfig();
+    const { api } = makeApi();
+    const { store, recallCount } = makeTrackingStore('ru');
+    await handleResult(cfg, api, okNotify(), store);
+    assert.equal(recallCount(), 1);
+  });
+
+  test('recalls on the ok path even when reactions are disabled', async () => {
+    const cfg = makeConfig();
+    cfg.reactions.enabled = false;
+    const { api } = makeApi();
+    const { store, recallCount } = makeTrackingStore('ru');
+    await handleResult(cfg, api, okNotify(), store);
+    assert.equal(recallCount(), 1);
+  });
+
+  test('recalls exactly once on the no_speech path', async () => {
+    const cfg = makeConfig();
+    const { api } = makeApi();
+    const { store, recallCount } = makeTrackingStore('ru');
+    await handleResult(cfg, api, noSpeechNotify(), store);
+    assert.equal(recallCount(), 1);
+  });
+});

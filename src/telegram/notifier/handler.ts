@@ -21,6 +21,11 @@ export async function handleResult(
   const { chat_id, message_id } = n.source;
   const r = n.result;
 
+  // Always consume the store entry, regardless of status or reaction
+  // config -- otherwise entries for the common ok path are never cleared
+  // and the map grows unbounded.
+  const lang = store.recall(n.source.update_id);
+
   if (!cfg.reactions.enabled) {
     if (r.status === 'error') {
       logError(n);
@@ -35,7 +40,6 @@ export async function handleResult(
 
   if (r.status === 'no_speech') {
     await setReactionSafe(api, chat_id, message_id, cfg.reactions.no_speech);
-    const lang = store.recall(n.source.update_id);
     const messages = pickMessages(lang);
     const text = formatNoSpeechReply(r.reason, messages);
     try {
