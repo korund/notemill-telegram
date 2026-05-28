@@ -36,11 +36,14 @@ export async function handleAudio(
   }
 
   const ext = extensionOf(file.file_path);
-  const bytes = await downloadFile(cfg.telegram.bot_token, file.file_path);
+  const { stream, size } = await downloadFile(cfg.telegram.bot_token, file.file_path);
   const audioKey = buildAudioKey(new Date(), ulid(), ext);
 
+  // Prefer getFile's file_size; fall back to the download Content-Length.
+  const knownSize = file.file_size ?? size;
+
   try {
-    await bucket.put(audioKey, bytes);
+    await bucket.put(audioKey, stream, knownSize !== undefined ? { size: knownSize } : {});
   } catch (err) {
     if (err instanceof BucketAlreadyExists) {
       log.warn({ audio_key: audioKey }, 'ulid collision, dropping update');

@@ -9,6 +9,7 @@
 //       [--chat-id N] [--message-id N] [--update-id N] [--user-id N] \
 //       [--lang BCP47] [--mime MIME]
 
+import { createReadStream } from "node:fs";
 import * as fsp from "node:fs/promises";
 import * as path from "node:path";
 import { parseArgs } from "node:util";
@@ -141,14 +142,15 @@ async function main(): Promise<void> {
     );
   }
 
-  const bytes = await fsp.readFile(audioAbs);
   const id = ulid();
   const now = new Date();
   const audioKey = buildAudioKey(now, id, ext);
 
-  // 1. Put bytes in bucket BEFORE enqueueing (contract section 5.4).
+  // 1. Stream bytes into bucket BEFORE enqueueing (contract section 5.4).
   const bucket = new FsBucket(args.bucketRoot);
-  const putRes = await bucket.put(audioKey, bytes);
+  const putRes = await bucket.put(audioKey, createReadStream(audioAbs), {
+    size: stat.size,
+  });
 
   // 2. Build TranscribeJob.
   const dedupKey = tgDedupKey(args.chatId, args.messageId);
