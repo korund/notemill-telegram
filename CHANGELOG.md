@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.3.0](https://github.com/korund/notemill-telegram/compare/v0.2.1...v0.3.0) (2026-07-27)
+
+
+### Features
+
+* **bucket:** stream audio into bucket instead of buffering in memory ([ae1c8d4](https://github.com/korund/notemill-telegram/commit/ae1c8d4618fa2762ee29c8ffcaac9e81284ad1a4))
+
+
+### Bug Fixes
+
+* **notifier:** recall language store entry on all result paths ([94824d3](https://github.com/korund/notemill-telegram/commit/94824d3c5d466df1b89a02ac96d4dacbc97d0648))
+* **notifier:** remove AbortSignal listener leak in sleep() ([3deaca9](https://github.com/korund/notemill-telegram/commit/3deaca90616cb5ece2cc2bf47e91c00cb6528721))
+
 ## [0.2.1](https://github.com/korund/notemill-telegram/compare/v0.2.0...v0.2.1) (2026-05-21)
 
 
